@@ -1,22 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-
-// Lê o token direto das variáveis do Render
-const TOKEN = process.env.DISCORD_TOKEN;
-
-if (!TOKEN) {
-  console.error("ERRO CRÍTICO: A variável DISCORD_TOKEN não foi encontrada no Render!");
-  process.exit(1);
-}
-
-// Inicialize o client normalmente abaixo
-const http = require('http');
-
-// Servidor Web para o Render reconhecer que a aplicação está ativa
-http.createServer((req, res) => {
-    res.write("Bot de Tickets Shark MM está 100% Online!");
-    res.end();
-}).listen(process.env.PORT || 3000);
-require('dotenv').config();
+const express = require('express');
 const { 
     Client, 
     GatewayIntentBits, 
@@ -37,6 +19,27 @@ const {
 } = require('discord.js');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { joinVoiceChannel, VoiceConnectionStatus } = require('@discordjs/voice');
+
+// 1. Servidor HTTP para manter o Render ativo e responder aos pings do UptimeRobot
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+app.get('/', (req, res) => {
+    res.send("Bot de Tickets Shark MM está 100% Online!");
+});
+
+app.listen(PORT, () => {
+    console.log(`🌐 Servidor HTTP rodando na porta ${PORT}`);
+});
+
+// 2. Tenta carregar o dotenv apenas em ambiente local (desenvolvimento)
+if (process.env.NODE_ENV !== 'production') {
+    try {
+        require('dotenv').config();
+    } catch (e) {
+        // Ignora se não estiver instalado no servidor de produção
+    }
+}
 
 const client = new Client({
     intents: [
@@ -266,7 +269,6 @@ client.on('interactionCreate', async (interaction) => {
             roleToMention = SUPPORT_TEAM_ROLE_ID;
         }
 
-        // Permissões padrão para os canais
         const permissionOverwrites = [
             { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
             { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] },
@@ -275,7 +277,6 @@ client.on('interactionCreate', async (interaction) => {
             { id: SUPPORT_TEAM_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] }
         ];
 
-        // Se for ticket de Vendas ou Compras, dá permissão ao cargo de Vendas. Caso contrário, oculta.
         if (isSalesOrPurchase) {
             permissionOverwrites.push({
                 id: SALES_TEAM_ROLE_ID,
@@ -617,6 +618,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
+// 3. Gerenciamento de Erros Globais (evita que o bot caia se a API falhar)
 process.on('unhandledRejection', error => {
     console.error('❌ Erro não tratado:', error);
 });
@@ -625,4 +627,14 @@ process.on('uncaughtException', error => {
     console.error('❌ Exceção não tratada:', error);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+// 4. Inicialização com validação do Token
+const TOKEN = process.env.DISCORD_TOKEN;
+
+if (!TOKEN) {
+    console.error('❌ ERRO CRÍTICO: DISCORD_TOKEN não foi configurado nas Environment Variables do Render!');
+    process.exit(1);
+} else {
+    client.login(TOKEN).catch(err => {
+        console.error('❌ Falha ao logar no Discord. Verifique o Token e as Gateway Intents:', err);
+    });
+}
