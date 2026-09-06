@@ -1,3 +1,14 @@
+const { Client, GatewayIntentBits } = require('discord.js');
+
+// Lê o token direto das variáveis do Render
+const TOKEN = process.env.DISCORD_TOKEN;
+
+if (!TOKEN) {
+  console.error("ERRO CRÍTICO: A variável DISCORD_TOKEN não foi encontrada no Render!");
+  process.exit(1);
+}
+
+// Inicialize o client normalmente abaixo
 const http = require('http');
 
 // Servidor Web para o Render reconhecer que a aplicação está ativa
